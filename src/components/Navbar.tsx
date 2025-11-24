@@ -1,53 +1,97 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import DarkModeToggle from './DarkModeToggle';
+import { Button } from './ui/Button';
+import { useDarkMode } from '../context/DarkModeContext';
+
+const navClasses = ({ isActive }: { isActive: boolean }) =>
+  `rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-emerald-50 dark:hover:bg-slate-800 ${
+    isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'
+  }`;
 
 export default function Navbar() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
+  const { isDark, toggle } = useDarkMode();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
-    await signOut();
+    await logout();
     navigate('/login');
   };
 
   return (
-    <header className="border-b border-gray-200 bg-white/80 backdrop-blur dark:border-gray-800 dark:bg-gray-800/70">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-lg font-semibold">
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/80">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button className="text-2xl sm:hidden" onClick={() => setOpen((p) => !p)} aria-label="Menüyü aç">
+            ☰
+          </button>
+          <Link to="/" className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
             Tarla Takip
           </Link>
-          {user && (
-            <nav className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300">
-              <Link to="/">Dashboard</Link>
-              <Link to="/fields">Tarlalar</Link>
-              <Link to="/fields/new">Yeni Tarla</Link>
-            </nav>
-          )}
         </div>
-        <div className="flex items-center gap-3">
-          <DarkModeToggle />
+        <nav className="hidden items-center gap-2 sm:flex">
+          {user && (
+            <>
+              <NavLink to="/" className={navClasses} end>
+                Gösterge
+              </NavLink>
+              <NavLink to="/fields" className={navClasses}>
+                Tarlalar
+              </NavLink>
+              {(user.role === 'admin' || user.role === 'owner') && (
+                <NavLink to="/admin" className={navClasses}>
+                  Admin
+                </NavLink>
+              )}
+            </>
+          )}
+        </nav>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={toggle} aria-label="Tema değiştir">
+            {isDark ? '🌙' : '☀️'}
+          </Button>
           {user ? (
-            <div className="flex items-center gap-3">
-              <div className="text-sm">
-                <div className="font-semibold">{user.name}</div>
-                <div className="text-gray-500">{user.role === 'employer' ? 'İşveren' : 'İşçi'}</div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="rounded-md bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600"
-              >
+            <div className="hidden items-center gap-2 sm:flex">
+              <span className="text-sm text-slate-600 dark:text-slate-300">{user.name}</span>
+              <Button variant="secondary" onClick={handleLogout}>
                 Çıkış
-              </button>
+              </Button>
             </div>
           ) : (
-            <Link to="/login" className="rounded-md bg-indigo-600 px-3 py-1 text-sm text-white">
+            <NavLink to="/login" className={navClasses}>
               Giriş
-            </Link>
+            </NavLink>
           )}
         </div>
       </div>
+      {open && (
+        <div className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 sm:hidden">
+          <div className="flex flex-col gap-2">
+            <NavLink to="/" className={navClasses} end onClick={() => setOpen(false)}>
+              Gösterge
+            </NavLink>
+            <NavLink to="/fields" className={navClasses} onClick={() => setOpen(false)}>
+              Tarlalar
+            </NavLink>
+            {(user?.role === 'admin' || user?.role === 'owner') && (
+              <NavLink to="/admin" className={navClasses} onClick={() => setOpen(false)}>
+                Admin
+              </NavLink>
+            )}
+            {user ? (
+              <Button variant="secondary" onClick={handleLogout}>
+                Çıkış
+              </Button>
+            ) : (
+              <NavLink to="/login" className={navClasses} onClick={() => setOpen(false)}>
+                Giriş
+              </NavLink>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

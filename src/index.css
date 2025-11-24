@@ -3,22 +3,22 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  color-scheme: light;
 }
 
 body {
-  margin: 0;
+  @apply bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+  @apply text-emerald-600 hover:text-emerald-700 dark:text-emerald-400;
 }
 
-.leaflet-container {
-  width: 100%;
-  height: 300px;
-  border-radius: 0.75rem;
-  overflow: hidden;
+.dark-mode {
+  color-scheme: dark;
+}
+
+.card-grid {
+  @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-4;
 }

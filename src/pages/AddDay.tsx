@@ -1,69 +1,88 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { FormEvent, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
+import { DayType } from '../types';
 
 export default function AddDay() {
-  const { id } = useParams<{ id: string }>();
+  const { state } = useLocation();
   const { user } = useAuth();
-  const { fields, addDay } = useFirestore(user);
+  const firestore = useFirestore(user);
   const navigate = useNavigate();
-  const field = useMemo(() => fields.find((f) => f.id === id), [fields, id]);
 
-  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [fieldId, setFieldId] = useState<string>(state?.fieldId || '');
+  const [date, setDate] = useState('');
+  const [dayType, setDayType] = useState<DayType>('full-day');
+  const [hours, setHours] = useState(8);
   const [note, setNote] = useState('');
+
+  const field = firestore.fields.find((f) => f.id === fieldId);
+  const daily = field?.dailyWage || 0;
+  const calculatedAmount = dayType === 'half-day' ? daily * 0.5 : dayType === 'custom-hours' ? daily * (hours / 8) : daily;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!id) return;
-    await addDay({ fieldId: id, date, note });
-    navigate(`/fields/${id}`);
+    if (!fieldId || !date) return;
+    await firestore.addDay({
+      fieldId,
+      date: new Date(date),
+      dayType,
+      hours: dayType === 'custom-hours' ? hours : undefined,
+      note,
+      calculatedAmount
+    });
+    navigate('/fields/' + fieldId);
   };
 
-  if (!field) return <div>Tarla bulunamadı.</div>;
-
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-800"
-      >
-        <h1 className="text-2xl font-bold">Gün Ekle</h1>
-        <p className="text-sm text-gray-500">{field.name} için yeni gün</p>
-
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="text-sm font-medium">Tarih</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Not</label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={4}
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-indigo-600 py-2 font-semibold text-white hover:bg-indigo-700"
+    <Card title="Gün Ekle" className="max-w-3xl">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Tarla
+          <select
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
+            value={fieldId}
+            onChange={(e) => setFieldId(e.target.value)}
           >
-            Kaydet
-          </button>
+            <option value="">Seçin</option>
+            {firestore.fields.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Input type="date" label="Tarih" value={date} onChange={(e) => setDate(e.target.value)} required />
+        <label className="flex flex-col gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Çalışma Tipi
+          <select
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900"
+            value={dayType}
+            onChange={(e) => setDayType(e.target.value as DayType)}
+          >
+            <option value="full-day">Tam Gün</option>
+            <option value="half-day">Yarım Gün</option>
+            <option value="custom-hours">Saat Bazlı</option>
+          </select>
+        </label>
+        {dayType === 'custom-hours' && (
+          <Input
+            label="Saat"
+            type="number"
+            min={1}
+            value={hours}
+            onChange={(e) => setHours(Number(e.target.value))}
+          />
+        )}
+        <Input label="Not" value={note} onChange={(e) => setNote(e.target.value)} />
+        <p className="text-sm text-slate-600 dark:text-slate-300">Hesaplanan Tutar: ₺{calculatedAmount.toFixed(2)}</p>
+        <div className="flex justify-end">
+          <Button type="submit">Kaydet</Button>
         </div>
       </form>
-      <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-800">
-        <h3 className="text-lg font-semibold">Ödeme</h3>
-        <p className="text-sm text-gray-500">Günlük ücret: ₺{field.dailyWage}</p>
-        <p className="text-sm text-gray-500">Kazanç: ₺{field.dailyWage}</p>
-      </div>
-    </div>
+    </Card>
   );
 }

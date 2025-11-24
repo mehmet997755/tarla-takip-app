@@ -1,39 +1,53 @@
-export type UserRole = 'employer' | 'worker';
+export type UserRole = 'employer' | 'worker' | 'admin' | 'owner';
 
 export interface AppUser {
   uid: string;
   name: string;
   email: string;
   role: UserRole;
-  photoURL?: string | null;
+  photoURL?: string;
 }
 
 export interface Field {
   id: string;
   name: string;
+  type: string;
   location: string;
   address: string;
-  type: string;
   dailyWage: number;
   userId: string;
-  workers: string[];
-  createdAt?: string;
+  workers?: string[];
+  status?: 'active' | 'archived';
+  createdAt?: any;
 }
+
+export type DayType = 'full-day' | 'half-day' | 'custom-hours';
 
 export interface DayEntry {
   id: string;
   fieldId: string;
-  date: string;
+  workerId?: string;
+  date: any;
+  dayType: DayType;
+  hours?: number;
   note?: string;
+  calculatedAmount: number;
+  createdAt?: any;
 }
 
-export interface WeatherData {
-  temperature: number;
-  description: string;
-  icon: string;
+export interface WorkerProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  defaultDailyWage?: number;
+  isActive?: boolean;
+  invitedFieldId?: string;
+  userId?: string;
+  createdAt?: any;
 }
 
-export interface OfflineTask {
-  type: 'addField' | 'addDay';
-  payload: Record<string, unknown>;
-}
+export type OfflineTask =
+  | { type: 'addField'; payload: Omit<Field, 'id' | 'createdAt'> }
+  | { type: 'addDay'; payload: Omit<DayEntry, 'id'> }
+  | { type: 'addWorker'; payload: Omit<WorkerProfile, 'id'> };

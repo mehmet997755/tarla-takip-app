@@ -1,35 +1,35 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
+import { useAuth } from '../hooks/useAuth';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 export default function OfflineSync() {
   const { user } = useAuth();
-  const { processQueue } = useFirestore(user);
-  const [online, setOnline] = useState<boolean>(navigator.onLine);
+  const firestore = useFirestore(user);
+  const [pending, setPending] = useState<number>(0);
 
   useEffect(() => {
-    const handle = () => setOnline(navigator.onLine);
-    window.addEventListener('online', handle);
-    window.addEventListener('offline', handle);
-    return () => {
-      window.removeEventListener('online', handle);
-      window.removeEventListener('offline', handle);
-    };
+    const queue = localStorage.getItem('offlineQueue');
+    setPending(queue ? JSON.parse(queue).length : 0);
   }, []);
 
   if (!user) return null;
 
   return (
-    <div className="mb-4 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
-      <div className="text-sm">
-        Durum: {online ? 'Çevrimiçi' : 'Çevrimdışı'} - Çevrimiçi olduğunuzda kuyruk otomatik senkronize edilir.
-      </div>
-      <button
-        onClick={processQueue}
-        className="rounded-md bg-amber-600 px-3 py-1 text-xs font-semibold text-white"
+    <div className="fixed bottom-4 right-4 z-40 w-72">
+      <Card
+        title="Çevrimdışı Kuyruk"
+        actions={
+          <Button variant="secondary" onClick={() => firestore.processQueue()}>
+            Senkronize Et
+          </Button>
+        }
       >
-        Kuyruğu Senkronize Et
-      </button>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Bekleyen işlem: <span className="font-semibold">{pending}</span>
+        </p>
+      </Card>
     </div>
   );
 }

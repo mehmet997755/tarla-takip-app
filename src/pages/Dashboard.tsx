@@ -1,77 +1,73 @@
-import { useEffect, useMemo } from 'react';
-import FieldCard from '../components/FieldCard';
-import WorkerList from '../components/WorkerList';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useFirestore } from '../hooks/useFirestore';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip, CartesianGrid, Line, LineChart } from 'recharts';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const firestore = useFirestore(user);
-  const { fields, days, loadFields, loadDays } = firestore;
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadFields();
-      loadDays();
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, [loadFields, loadDays]);
-
-  useEffect(() => {
-    loadFields();
-    loadDays();
-  }, [loadFields, loadDays]);
+  const { fields, days, workers } = firestore;
 
   const stats = useMemo(() => {
     const totalDays = days.length;
     const totalFields = fields.length;
-    const totalEarnings = days.reduce((sum, day) => {
-      const field = fields.find((f) => f.id === day.fieldId);
-      return sum + (field?.dailyWage || 0);
-    }, 0);
-    const workers = new Set<string>();
-    fields.forEach((f) => f.workers?.forEach((w) => workers.add(w)));
-    return {
-      totalDays,
-      totalFields,
-      totalEarnings,
-      totalWorkers: workers.size
-    };
-  }, [days, fields]);
+    const totalWorkers = workers.filter((w) => w.isActive !== false).length;
+    const unpaid = days.reduce((sum, d) => sum + (d.calculatedAmount || 0), 0);
+    return { totalDays, totalFields, totalWorkers, unpaid };
+  }, [days, fields, workers]);
+
+  const chartData = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    days.forEach((d) => {
+      const key = new Date(d.date.seconds ? d.date.seconds * 1000 : d.date).toLocaleDateString('tr-TR');
+      grouped[key] = (grouped[key] || 0) + (d.calculatedAmount || 0);
+    });
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [days]);
+
+  const productionData = fields.map((f) => ({ name: f.name, value: f.dailyWage * (days.filter((d) => d.fieldId === f.id).length || 0) }));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Hoş geldin {user?.name}</h1>
-        <p className="text-sm text-gray-500">Genel durum ve son aktiviteler</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gösterge Paneli</h1>
+        <Link to="/add-field">
+          <Button>Yeni Tarla</Button>
+        </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Toplam Tarla" value={stats.totalFields} />
-        <StatCard title="Toplam İşçi" value={stats.totalWorkers} />
-        <StatCard title="Toplam Gün" value={stats.totalDays} />
-        <StatCard title="Toplam Kazanç" value={`₺${stats.totalEarnings}`} />
+      <div className="card-grid">
+        <Card title="Toplam Tarla"> <div className="text-3xl font-bold">{stats.totalFields}</div> </Card>
+        <Card title="Aktif İşçi"> <div className="text-3xl font-bold">{stats.totalWorkers}</div> </Card>
+        <Card title="Toplam Gün"> <div className="text-3xl font-bold">{stats.totalDays}</div> </Card>
+        <Card title="Ödenmemiş"> <div className="text-3xl font-bold text-amber-500">₺{stats.unpaid.toFixed(2)}</div> </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-lg font-semibold">Tarlalar</h2>
-          {fields.map((field) => (
-            <FieldCard key={field.id} field={field} />
-          ))}
-          {!fields.length && <div className="text-sm text-gray-500">Henüz tarla yok.</div>}
-        </div>
-        <WorkerList fields={fields} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Gün Bazlı Kazanç">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" />
+              <Tooltip />
+              <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card title="Tarla Bazlı Üretim">
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={productionData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="name" />
+              <Tooltip />
+              <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm shadow-sm dark:border-gray-800 dark:bg-gray-800">
-      <div className="text-gray-500">{title}</div>
-      <div className="text-2xl font-semibold">{value}</div>
     </div>
   );
 }
